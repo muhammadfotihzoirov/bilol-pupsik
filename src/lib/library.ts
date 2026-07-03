@@ -23,6 +23,14 @@ export type Item = {
   trailer: string; // URL
 };
 
+export type Episode = {
+  id: string;
+  animeId: string; // can be catalog ID like "1" or library item id
+  episode: number;
+  title: string;
+  url: string; // hidden video URL
+};
+
 // SECURITY: strict schema — bounded lengths, safe URL scheme, whitelist chars
 const urlSchema = z
   .string()
@@ -47,8 +55,17 @@ export const itemSchema = z.object({
   trailer: urlSchema,
 });
 
+export const episodeSchema = z.object({
+  animeId: z.string().min(1).max(100),
+  episode: z.number().int().min(1).max(9999),
+  title: z.string().trim().min(1).max(100),
+  url: urlSchema,
+});
+
 const KEY = "neoanime:library:v1";
+const EP_KEY = "neoanime:episodes:v1";
 const MAX_ITEMS = 200; // hard cap — DoS/quota protection
+const MAX_EPISODES = 2000;
 
 function read(): Item[] {
   try {
@@ -65,6 +82,23 @@ function read(): Item[] {
 function write(items: Item[]) {
   localStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX_ITEMS)));
   window.dispatchEvent(new Event("library:changed"));
+}
+
+function readEpisodes(): Episode[] {
+  try {
+    const raw = localStorage.getItem(EP_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.slice(0, MAX_EPISODES);
+  } catch {
+    return [];
+  }
+}
+
+function writeEpisodes(eps: Episode[]) {
+  localStorage.setItem(EP_KEY, JSON.stringify(eps.slice(0, MAX_EPISODES)));
+  window.dispatchEvent(new Event("library:episodes:changed"));
 }
 
 export function useLibrary() {
@@ -92,7 +126,44 @@ export function useLibrary() {
 
   const remove = (id: string) => {
     write(read().filter((i) => i.id !== id));
+    // also remove episodes for this item
+    writeEpisodes(readEpisodes().filter((e) => e.animeId !== id));
   };
 
   return { items, add, remove, MAX_ITEMS };
+}
+
+export function useEpisodes() {
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
+
+  useEffect(() => {
+    setEpisodes(readEpisodes());
+    const onChange = () => setEpisodes(readEpisodes());
+    window.addEventListener("library:episodes:changed", onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener("library:episodes:changed", onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, []);
+
+  const addEpisode = (input: unknown) => {
+    const parsed = episodeSchema.parse(input);
+    const current = readEpisodes();
+    if (current.length >= MAX_EPISODES) throw new Error("Достигнут лимит эпизодов");
+    const ep: Episode = { ...parsed, id: crypto.randomUUID() };
+    writeEpisodes([...current, ep]);
+    return ep;
+  };
+
+  const removeEpisode = (id: string) => {
+    writeEpisodes(readEpisodes().filter((e) => e.id !== id));
+  };
+
+  const getForAnime = (animeId: string) =>
+    episodes
+      .filter((e) => e.animeId === animeId)
+      .sort((a, b) => a.episode - b.episode);
+
+  return { episodes, addEpisode, removeEpisode, getForAnime };
 }

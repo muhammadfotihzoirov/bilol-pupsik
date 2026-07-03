@@ -18,6 +18,7 @@ import {
   Tag,
   ChevronRight,
   X,
+  ListVideo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,46 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   useLibrary,
+  useEpisodes,
   itemSchema,
+  episodeSchema,
   CATEGORIES,
   CATEGORY_LABELS,
   type Category,
   type Item,
 } from "@/lib/library";
+
+// Catalog anime titles (static list for episode assignment)
+const CATALOG_ANIME: { id: string; title: string }[] = [
+  { id: "1", title: "Атака Титанов" },
+  { id: "2", title: "Наруто: Ураганные хроники" },
+  { id: "3", title: "Ван-Пис" },
+  { id: "4", title: "Клинок, рассекающий демонов" },
+  { id: "5", title: "Магическая битва" },
+  { id: "6", title: "Моя геройская академия" },
+  { id: "7", title: "Стальной алхимик: Братство" },
+  { id: "8", title: "Тетрадь смерти" },
+  { id: "9", title: "Код Гиасс" },
+  { id: "10", title: "Стейнс;Гейт" },
+  { id: "11", title: "Твоё имя" },
+  { id: "12", title: "Унесённые призраками" },
+  { id: "13", title: "Ковбой Бибоп" },
+  { id: "14", title: "Евангелион" },
+  { id: "15", title: "Клинок Бессмертного" },
+  { id: "16", title: "Ре:Зеро" },
+  { id: "17", title: "Оверлорд" },
+  { id: "18", title: "Ванпанчмен" },
+  { id: "19", title: "Мастера меча онлайн" },
+  { id: "20", title: "Психопаспорт" },
+  { id: "21", title: "Токийский гуль" },
+  { id: "22", title: "Хвост Феи" },
+  { id: "23", title: "Синий экзорцист" },
+  { id: "24", title: "Кибергород ЭДО.808" },
+  { id: "25", title: "Призрак в доспехах" },
+  { id: "26", title: "Акира" },
+  { id: "27", title: "Мушиши" },
+  { id: "28", title: "Моб Психо 100" },
+];
 
 export const Route = createFileRoute("/admin")({
   component: Admin,
@@ -67,14 +102,48 @@ const emptyForm = {
   trailer: "",
 };
 
+const emptyEpForm = { animeId: "", episode: 1, title: "", url: "" };
+
 function Admin() {
   const { items, add, remove, MAX_ITEMS } = useLibrary();
+  const { episodes, addEpisode, removeEpisode, getForAnime } = useEpisodes();
   const [activeTab, setActiveTab] = useState<Category>("anime");
+  const [mainTab, setMainTab] = useState<"catalog" | "episodes">("catalog");
   const [form, setForm] = useState(emptyForm);
+  const [epForm, setEpForm] = useState(emptyEpForm);
+  const [epErr, setEpErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [epDeleteConfirm, setEpDeleteConfirm] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+
+  // All anime available for episode assignment
+  const allAnime = [
+    ...CATALOG_ANIME,
+    ...items.map((i) => ({ id: `u_${i.id}`, title: i.title })),
+  ];
+
+  const submitEpisode = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEpErr(null);
+    const parsed = episodeSchema.safeParse({
+      ...epForm,
+      episode: Number(epForm.episode),
+    });
+    if (!parsed.success) {
+      setEpErr(parsed.error.issues[0]?.message ?? "Проверьте поля");
+      return;
+    }
+    try {
+      addEpisode(parsed.data);
+      const animeName = allAnime.find((a) => a.id === epForm.animeId)?.title ?? epForm.animeId;
+      toast.success(`Эпизод ${epForm.episode} добавлен!`, { description: animeName });
+      setEpForm(emptyEpForm);
+    } catch (ex) {
+      setEpErr(ex instanceof Error ? ex.message : "Ошибка");
+    }
+  };
 
   const tabItems = items.filter((i) => i.category === activeTab);
 
@@ -162,6 +231,122 @@ function Admin() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        {/* Main tab switcher */}
+        <div className="mb-6 flex gap-1 rounded-2xl border border-white/10 p-1" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <button
+            onClick={() => setMainTab("catalog")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${ mainTab === "catalog" ? "text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground" }`}
+            style={mainTab === "catalog" ? { background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow)" } : {}}
+          >
+            <Package className="h-4 w-4" /> Каталог
+          </button>
+          <button
+            onClick={() => setMainTab("episodes")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${ mainTab === "episodes" ? "text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground" }`}
+            style={mainTab === "episodes" ? { background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow)" } : {}}
+          >
+            <ListVideo className="h-4 w-4" /> Эпизоды ({episodes.length})
+          </button>
+        </div>
+
+        {/* Episodes tab */}
+        {mainTab === "episodes" && (
+          <div>
+            {/* Add episode form */}
+            <div className="mb-6 overflow-hidden rounded-2xl border border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4" style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.15),rgba(6,182,212,0.05))" }}>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "var(--gradient-hero)" }}>
+                  <ListVideo className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold">Добавить эпизод</p>
+                  <p className="text-xs text-muted-foreground">Видео сохранится в базе — ссылка скрыта от зрителей</p>
+                </div>
+              </div>
+              <form onSubmit={submitEpisode} className="p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5"><Tag className="h-3 w-3" /> Аниме</Label>
+                    <select
+                      value={epForm.animeId}
+                      onChange={(e) => setEpForm({ ...epForm, animeId: e.target.value })}
+                      className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+                    >
+                      <option value="" disabled style={{ background: "#0a0a14" }}>Выберите аниме...</option>
+                      {allAnime.map((a) => (
+                        <option key={a.id} value={a.id} style={{ background: "#0a0a14" }}>{a.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5"><Hash className="h-3 w-3" /> Номер эпизода</Label>
+                    <Input type="number" min={1} max={9999} value={String(epForm.episode)} onChange={(e) => setEpForm({ ...epForm, episode: Number(e.target.value) || 1 })} className="border-white/10 bg-white/5 focus:border-primary/50" />
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5"><Tag className="h-3 w-3" /> Название эпизода</Label>
+                    <Input value={epForm.title} onChange={(e) => setEpForm({ ...epForm, title: e.target.value.slice(0, 100) })} placeholder="Пробуждение..." maxLength={100} className="border-white/10 bg-white/5 focus:border-primary/50" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5"><Video className="h-3 w-3" /> Ссылка на видео (https)</Label>
+                    <Input value={epForm.url} onChange={(e) => setEpForm({ ...epForm, url: e.target.value.slice(0, 500) })} placeholder="https://..." maxLength={500} className="border-white/10 bg-white/5 focus:border-primary/50" />
+                    <p className="mt-1 text-xs text-muted-foreground">Ссылка хранится только в браузере, зрители её не увидят</p>
+                  </div>
+                  {epErr && <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive sm:col-span-2">{epErr}</p>}
+                  <div className="sm:col-span-2">
+                    <Button type="submit" className="w-full py-5 text-sm font-semibold text-white sm:w-auto sm:px-8" style={{ background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow)" }}>
+                      <Plus className="mr-2 h-4 w-4" /> Добавить эпизод
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Episodes list grouped by anime */}
+            {allAnime.filter((a) => getForAnime(a.id).length > 0).length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-16 text-center">
+                <ListVideo className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">Эпизоды ещё не добавлены</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {allAnime.filter((a) => getForAnime(a.id).length > 0).map((anime) => (
+                  <div key={anime.id} className="rounded-2xl border border-white/10 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3" style={{ background: "rgba(139,92,246,0.08)" }}>
+                      <BookOpen className="h-4 w-4 text-primary" />
+                      <p className="font-semibold text-sm">{anime.title}</p>
+                      <Badge variant="outline" className="ml-auto border-white/10 text-xs">{getForAnime(anime.id).length} эп.</Badge>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {getForAnime(anime.id).map((ep) => (
+                        <div key={ep.id} className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: "rgba(139,92,246,0.15)" }}>
+                            <span className="text-xs font-bold text-primary">{ep.episode}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{ep.title}</p>
+                            <p className="text-xs text-muted-foreground">Эпизод {ep.episode} · URL скрыт</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (epDeleteConfirm === ep.id) { removeEpisode(ep.id); toast.success("Эпизод удалён"); setEpDeleteConfirm(null); }
+                              else { setEpDeleteConfirm(ep.id); setTimeout(() => setEpDeleteConfirm(null), 3000); }
+                            }}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all ${ epDeleteConfirm === ep.id ? "bg-destructive text-white" : "border border-white/10 text-muted-foreground hover:border-destructive/50 hover:text-destructive" }`}
+                            title={epDeleteConfirm === ep.id ? "Нажмите ещё раз" : "Удалить"}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {mainTab === "catalog" && (
         {/* Stats row */}
         <div className="mb-6 grid grid-cols-3 gap-3">
           {CATEGORIES.map((c) => {
@@ -504,6 +689,7 @@ function Admin() {
             </div>
           )}
         </div>
+        )}
       </main>
     </div>
   );

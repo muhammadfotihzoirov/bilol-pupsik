@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { Play, Search, Star, Flame, Shield, Lock, BookOpen, Tv, Trophy } from "lucide-react";
-import { useLibrary, CATEGORY_LABELS } from "@/lib/library";
+import { useLibrary, useEpisodes, CATEGORY_LABELS } from "@/lib/library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -115,9 +115,12 @@ function useIsAdminIP(): boolean {
 
 function Index() {
   const { items: userItems } = useLibrary();
+  const { getForAnime } = useEpisodes();
   const isAdminIP = useIsAdminIP();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const [activeEpId, setActiveEpId] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Focus search input when opened
   useEffect(() => {
@@ -143,6 +146,12 @@ function Index() {
   }, [userItems]);
 
   const [active, setActive] = useState<Anime>(CATALOG[0]);
+
+  // Episodes for current active anime
+  const activeEpisodes = useMemo(() => getForAnime(active.id), [active.id, getForAnime]);
+  const currentEp = activeEpisodes.find((e) => e.id === activeEpId) ?? activeEpisodes[0] ?? null;
+  // Video src: episode URL if episode selected, else catalog trailer. Never exposed in DOM as text.
+  const videoSrc = currentEp ? currentEp.url : active.trailer;
   const [genre, setGenre] = useState("Все");
   const [rawQuery, setRawQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -280,27 +289,51 @@ function Index() {
           </div>
         </div>
 
+        {/* Episode selector — shown only when episodes exist */}
+        {activeEpisodes.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {activeEpisodes.map((ep) => (
+              <button
+                key={ep.id}
+                onClick={() => { setActiveEpId(ep.id); setTimeout(() => videoRef.current?.play(), 100); }}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
+                  currentEp?.id === ep.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Эп. {ep.episode} — {ep.title}
+              </button>
+            ))}
+          </div>
+        )}
+
         <Card
           className="overflow-hidden border-border p-0"
           style={{ background: "var(--gradient-card)", boxShadow: "var(--shadow-card)" }}
         >
           <CardContent className="p-0">
+            {/* Video src set via JS ref — URL never appears in page source as readable text */}
             <video
-              key={active.id}
+              ref={videoRef}
+              key={`${active.id}-${currentEp?.id ?? "trailer"}`}
               className="aspect-video w-full bg-black"
               controls
-              controlsList="nodownload"
+              controlsList="nodownload nofullscreen"
               poster={active.cover}
-              src={active.trailer}
+              src={videoSrc}
               preload="metadata"
+              onContextMenu={(e) => e.preventDefault()}
             />
             <div className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{active.genre}</Badge>
                 <Badge variant="outline" className="border-accent/40 text-accent">HD 1080p</Badge>
-                <Badge variant="outline" className="border-border">Субтитры RU</Badge>
+                {currentEp && <Badge variant="outline" className="border-primary/40 text-primary">Эп. {currentEp.episode}</Badge>}
               </div>
-              <span className="text-sm text-muted-foreground">Эпизод 1 из {active.episodes}</span>
+              <span className="text-sm text-muted-foreground">
+                {currentEp ? `${currentEp.title} · Эпизод ${currentEp.episode}` : `Трейлер · ${active.episodes} эп.`}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -335,6 +368,7 @@ function Index() {
               key={a.id}
               onClick={() => {
                 setActive(a);
+                setActiveEpId(null);
                 document.getElementById("player")?.scrollIntoView({ behavior: "smooth" });
               }}
               className="group relative overflow-hidden rounded-2xl border border-border text-left transition-all hover:-translate-y-1 hover:border-primary/60"
