@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Shield,
   Trash2,
@@ -104,7 +104,42 @@ const emptyForm = {
 
 const emptyEpForm = { animeId: "", episode: 1, title: "", url: "" };
 
+// Allowed admin IPs
+const ADMIN_IPS = ["213.230.78.106", "144.124.192.96"];
+
+function useAdminGate(): "loading" | "allowed" | "denied" {
+  const [state, setState] = useState<"loading" | "allowed" | "denied">("loading");
+  useEffect(() => {
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d: { ip: string }) => {
+        setState(ADMIN_IPS.includes(d.ip) ? "allowed" : "denied");
+      })
+      .catch(() => setState("denied"));
+  }, []);
+  return state;
+}
+
 function Admin() {
+  const gate = useAdminGate();
+
+  // Block access for non-admin IPs — render nothing (404-like)
+  if (gate === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--background)" }}>
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (gate === "denied") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3" style={{ background: "var(--background)", color: "hsl(var(--foreground))" }}>
+        <p className="text-7xl font-bold text-muted-foreground/20">404</p>
+        <p className="text-sm text-muted-foreground">Страница не найдена</p>
+        <a href="/" className="mt-2 text-xs text-primary hover:underline">← На главную</a>
+      </div>
+    );
+  }
   const { items, add, remove, MAX_ITEMS } = useLibrary();
   const { episodes, addEpisode, removeEpisode, getForAnime } = useEpisodes();
   const [activeTab, setActiveTab] = useState<Category>("anime");
