@@ -347,8 +347,9 @@ function Admin() {
         )}
 
         {mainTab === "catalog" && (
-        {/* Stats row */}
-        <div className="mb-6 grid grid-cols-3 gap-3">
+          <div>
+          {/* Stats row */}
+          <div className="mb-6 grid grid-cols-3 gap-3">
           {CATEGORIES.map((c) => {
             const Icon = CATEGORY_ICONS[c];
             const count = items.filter((i) => i.category === c).length;
@@ -689,6 +690,7 @@ function Admin() {
             </div>
           )}
         </div>
+          </div>
         )}
       </main>
     </div>
