@@ -120,10 +120,11 @@ function useAdminGate(): "loading" | "allowed" | "denied" {
   return state;
 }
 
+// Admin = gate wrapper — only renders AdminPanel when IP is allowed.
+// AdminPanel holds all hooks — hooks never run conditionally.
 function Admin() {
   const gate = useAdminGate();
 
-  // Block access for non-admin IPs — render nothing (404-like)
   if (gate === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--background)" }}>
@@ -140,6 +141,10 @@ function Admin() {
       </div>
     );
   }
+  return <AdminPanel />;
+}
+
+function AdminPanel() {
   const { items, add, remove, MAX_ITEMS } = useLibrary();
   const { episodes, addEpisode, removeEpisode, getForAnime } = useEpisodes();
   const [activeTab, setActiveTab] = useState<Category>("anime");
