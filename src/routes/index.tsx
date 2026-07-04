@@ -385,8 +385,14 @@ function Index() {
                   loading="lazy"
                   width={640}
                   height={896}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const fallback = COVERS[Number(a.id.replace(/\D/g, "") || 0) % COVERS.length];
+                    if (img.src !== fallback) img.src = fallback;
+                  }}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
+
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
                 <div
                   className="absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-primary-foreground"
