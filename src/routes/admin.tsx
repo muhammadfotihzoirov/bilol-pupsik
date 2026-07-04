@@ -19,6 +19,7 @@ import {
   ChevronRight,
   X,
   ListVideo,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 import {
   useLibrary,
   useEpisodes,
+  useCoverOverrides,
   itemSchema,
   episodeSchema,
   CATEGORIES,
@@ -36,6 +38,7 @@ import {
   type Category,
   type Item,
 } from "@/lib/library";
+
 
 // Catalog anime titles (static list for episode assignment)
 const CATALOG_ANIME: { id: string; title: string }[] = [
