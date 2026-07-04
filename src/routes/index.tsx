@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { Play, Search, Star, Flame, Shield, Lock, BookOpen, Tv, Trophy } from "lucide-react";
-import { useLibrary, useEpisodes, CATEGORY_LABELS } from "@/lib/library";
+import { useLibrary, useEpisodes, useCoverOverrides, CATEGORY_LABELS } from "@/lib/library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,12 @@ import a3 from "@/assets/anime3.jpg";
 import a4 from "@/assets/anime4.jpg";
 import a5 from "@/assets/anime5.jpg";
 import a6 from "@/assets/anime6.jpg";
+import narutoCover from "@/assets/naruto.jpg.asset.json";
+import aotCover from "@/assets/aot.webp.asset.json";
+import demonSlayerCover from "@/assets/demon-slayer.jpg.asset.json";
+import jjkCover from "@/assets/jjk.webp.asset.json";
+import mhaCover from "@/assets/mha.jpg.asset.json";
+
 
 export const Route = createFileRoute("/")({
   component: Index,
