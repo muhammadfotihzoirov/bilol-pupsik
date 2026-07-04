@@ -19,6 +19,7 @@ import {
   ChevronRight,
   X,
   ListVideo,
+  
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 import {
   useLibrary,
   useEpisodes,
+  useCoverOverrides,
   itemSchema,
   episodeSchema,
   CATEGORIES,
@@ -36,6 +38,7 @@ import {
   type Category,
   type Item,
 } from "@/lib/library";
+
 
 // Catalog anime titles (static list for episode assignment)
 const CATALOG_ANIME: { id: string; title: string }[] = [
@@ -147,8 +150,12 @@ function Admin() {
 function AdminPanel() {
   const { items, add, remove, MAX_ITEMS } = useLibrary();
   const { episodes, addEpisode, removeEpisode, getForAnime } = useEpisodes();
+  const { covers: coverOverrides, setCover, clearCover } = useCoverOverrides();
   const [activeTab, setActiveTab] = useState<Category>("anime");
-  const [mainTab, setMainTab] = useState<"catalog" | "episodes">("catalog");
+  const [mainTab, setMainTab] = useState<"catalog" | "episodes" | "covers">("catalog");
+  const [coverDraft, setCoverDraft] = useState<Record<string, string>>({});
+  const [coverErr, setCoverErr] = useState<string | null>(null);
+
   const [form, setForm] = useState(emptyForm);
   const [epForm, setEpForm] = useState(emptyEpForm);
   const [epErr, setEpErr] = useState<string | null>(null);
@@ -287,7 +294,89 @@ function AdminPanel() {
           >
             <ListVideo className="h-4 w-4" /> Эпизоды ({episodes.length})
           </button>
+          <button
+            onClick={() => setMainTab("covers")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${ mainTab === "covers" ? "text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground" }`}
+            style={mainTab === "covers" ? { background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow)" } : {}}
+          >
+            <Image className="h-4 w-4" /> Обложки
+          </button>
         </div>
+
+        {/* Covers tab */}
+        {mainTab === "covers" && (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/10 p-4 text-xs text-muted-foreground" style={{ background: "rgba(255,255,255,0.03)" }}>
+              Вставьте прямую ссылку на изображение (https://...jpg/png/webp). Кнопка «Сохранить» применит её как обложку. «Сброс» вернёт стандартную.
+            </div>
+            {coverErr && (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{coverErr}</p>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {allAnime.map((a) => {
+                const current = coverOverrides[a.id];
+                const draft = coverDraft[a.id] ?? current ?? "";
+                return (
+                  <div key={a.id} className="rounded-2xl border border-white/10 p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <div className="flex items-start gap-3">
+                      {current ? (
+                        <img src={current} alt="" className="h-20 w-14 shrink-0 rounded-lg object-cover border border-white/10" onError={(e) => ((e.currentTarget.style.opacity = "0.3"))} />
+                      ) : (
+                        <div className="grid h-20 w-14 shrink-0 place-items-center rounded-lg border border-dashed border-white/10 text-muted-foreground">
+                          <Image className="h-4 w-4" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{a.title}</p>
+                        <p className="text-xs text-muted-foreground mb-2">{current ? "Своя обложка" : "Обложка по умолчанию"}</p>
+                        <Input
+                          value={draft}
+                          onChange={(e) => setCoverDraft({ ...coverDraft, [a.id]: e.target.value.slice(0, 500) })}
+                          placeholder="https://..."
+                          maxLength={500}
+                          className="border-white/10 bg-white/5 text-xs focus:border-primary/50"
+                        />
+                        <div className="mt-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs text-white"
+                            style={{ background: "var(--gradient-hero)" }}
+                            onClick={() => {
+                              setCoverErr(null);
+                              try {
+                                setCover(a.id, draft);
+                                toast.success("Обложка обновлена", { description: a.title });
+                              } catch (ex) {
+                                setCoverErr(ex instanceof Error ? ex.message : "Ошибка");
+                              }
+                            }}
+                          >
+                            Сохранить
+                          </Button>
+                          {current && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 border-white/10 text-xs"
+                              onClick={() => {
+                                clearCover(a.id);
+                                setCoverDraft({ ...coverDraft, [a.id]: "" });
+                                toast.success("Обложка сброшена");
+                              }}
+                            >
+                              Сброс
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
 
         {/* Episodes tab */}
         {mainTab === "episodes" && (

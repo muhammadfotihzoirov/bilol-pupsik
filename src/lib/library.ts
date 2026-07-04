@@ -64,8 +64,13 @@ export const episodeSchema = z.object({
 
 const KEY = "neoanime:library:v1";
 const EP_KEY = "neoanime:episodes:v1";
+const COVER_KEY = "neoanime:covers:v1";
 const MAX_ITEMS = 200; // hard cap — DoS/quota protection
 const MAX_EPISODES = 2000;
+const MAX_COVERS = 500;
+
+export const coverOverrideSchema = urlSchema;
+
 
 function read(): Item[] {
   try {
@@ -167,3 +172,55 @@ export function useEpisodes() {
 
   return { episodes, addEpisode, removeEpisode, getForAnime };
 }
+
+// Cover overrides — map animeId -> https URL. Used to change catalog covers.
+function readCovers(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(COVER_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return {};
+    return obj as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function writeCovers(covers: Record<string, string>) {
+  const keys = Object.keys(covers).slice(0, MAX_COVERS);
+  const trimmed: Record<string, string> = {};
+  for (const k of keys) trimmed[k] = covers[k];
+  localStorage.setItem(COVER_KEY, JSON.stringify(trimmed));
+  window.dispatchEvent(new Event("library:covers:changed"));
+}
+
+export function useCoverOverrides() {
+  const [covers, setCovers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setCovers(readCovers());
+    const onChange = () => setCovers(readCovers());
+    window.addEventListener("library:covers:changed", onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener("library:covers:changed", onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, []);
+
+  const setCover = (animeId: string, url: string) => {
+    if (!animeId || animeId.length > 100) throw new Error("Неверный id");
+    const parsed = coverOverrideSchema.parse(url);
+    const current = readCovers();
+    writeCovers({ ...current, [animeId]: parsed });
+  };
+
+  const clearCover = (animeId: string) => {
+    const current = readCovers();
+    delete current[animeId];
+    writeCovers(current);
+  };
+
+  return { covers, setCover, clearCover };
+}
+

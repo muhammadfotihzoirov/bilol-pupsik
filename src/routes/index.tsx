@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { Play, Search, Star, Flame, Shield, Lock, BookOpen, Tv, Trophy } from "lucide-react";
-import { useLibrary, useEpisodes, CATEGORY_LABELS } from "@/lib/library";
+import { useLibrary, useEpisodes, useCoverOverrides, CATEGORY_LABELS } from "@/lib/library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,12 @@ import a3 from "@/assets/anime3.jpg";
 import a4 from "@/assets/anime4.jpg";
 import a5 from "@/assets/anime5.jpg";
 import a6 from "@/assets/anime6.jpg";
+import narutoCover from "@/assets/naruto.jpg.asset.json";
+import aotCover from "@/assets/aot.webp.asset.json";
+import demonSlayerCover from "@/assets/demon-slayer.jpg.asset.json";
+import jjkCover from "@/assets/jjk.webp.asset.json";
+import mhaCover from "@/assets/mha.jpg.asset.json";
+
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -48,10 +54,21 @@ const V = [
 // Fallback cover pool from local generated art (used if remote poster fails).
 const COVERS = [a1, a2, a3, a4, a5, a6];
 
+// Hardcoded real covers for known catalog entries (by id).
+const DEFAULT_COVERS: Record<string, string> = {
+  "1": aotCover.url,           // Атака Титанов
+  "2": narutoCover.url,        // Наруто: Ураганные хроники
+  "4": demonSlayerCover.url,   // Клинок, рассекающий демонов
+  "5": jjkCover.url,           // Магическая битва
+  "6": mhaCover.url,           // Моя геройская академия
+};
+
 // Unique per-anime cover: deterministic seed => distinct image per title.
 // Uses picsum.photos with a title-derived seed so every card looks different.
 const coverFor = (id: string, title: string) =>
+  DEFAULT_COVERS[id] ??
   `https://picsum.photos/seed/neoanime-${id}-${encodeURIComponent(title).slice(0, 24)}/640/896`;
+
 
 const RAW: Omit<Anime, "cover" | "trailer">[] = [
   { id: "1", title: "Атака Титанов", genre: "Экшн", rating: 9.1, episodes: 87, year: 2013, desc: "Человечество за стенами против гигантов." },
@@ -120,6 +137,7 @@ function useIsAdminIP(): boolean {
 function Index() {
   const { items: userItems } = useLibrary();
   const { getForAnime } = useEpisodes();
+  const { covers: coverOverrides } = useCoverOverrides();
   const isAdminIP = useIsAdminIP();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
@@ -133,21 +151,29 @@ function Index() {
     }
   }, [mobileSearchOpen]);
 
-  // Merge admin-added items into the catalog (title carries category prefix badge)
+  // Merge admin-added items into the catalog and apply cover overrides
   const mergedCatalog: Anime[] = useMemo(() => {
-    const mapped: Anime[] = userItems.map((it) => ({
-      id: `u_${it.id}`,
-      title: it.title,
-      genre: it.genre,
-      rating: it.rating,
-      episodes: 1,
-      year: it.year,
-      cover: it.cover,
-      trailer: it.trailer,
-      desc: `[${CATEGORY_LABELS[it.category]}] ${it.desc}`,
+    const mapped: Anime[] = userItems.map((it) => {
+      const uid = `u_${it.id}`;
+      return {
+        id: uid,
+        title: it.title,
+        genre: it.genre,
+        rating: it.rating,
+        episodes: 1,
+        year: it.year,
+        cover: coverOverrides[uid] ?? it.cover,
+        trailer: it.trailer,
+        desc: `[${CATEGORY_LABELS[it.category]}] ${it.desc}`,
+      };
+    });
+    const catalog = CATALOG.map((a) => ({
+      ...a,
+      cover: coverOverrides[a.id] ?? a.cover,
     }));
-    return [...mapped, ...CATALOG];
-  }, [userItems]);
+    return [...mapped, ...catalog];
+  }, [userItems, coverOverrides]);
+
 
   const [active, setActive] = useState<Anime>(CATALOG[0]);
 
