@@ -150,8 +150,12 @@ function Admin() {
 function AdminPanel() {
   const { items, add, remove, MAX_ITEMS } = useLibrary();
   const { episodes, addEpisode, removeEpisode, getForAnime } = useEpisodes();
+  const { covers: coverOverrides, setCover, clearCover } = useCoverOverrides();
   const [activeTab, setActiveTab] = useState<Category>("anime");
-  const [mainTab, setMainTab] = useState<"catalog" | "episodes">("catalog");
+  const [mainTab, setMainTab] = useState<"catalog" | "episodes" | "covers">("catalog");
+  const [coverDraft, setCoverDraft] = useState<Record<string, string>>({});
+  const [coverErr, setCoverErr] = useState<string | null>(null);
+
   const [form, setForm] = useState(emptyForm);
   const [epForm, setEpForm] = useState(emptyEpForm);
   const [epErr, setEpErr] = useState<string | null>(null);
