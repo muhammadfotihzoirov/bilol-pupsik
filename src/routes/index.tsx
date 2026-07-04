@@ -31,23 +31,27 @@ type Anime = {
   desc: string;
 };
 
-// Public demo videos — file-examples.com explicitly allows hotlinking for testing
+// Public CC0/demo videos hosted on stable CDNs (Mozilla MDN, samplelib, w3schools).
+// Multiple sources reduce risk of a single host blocking hotlinks.
 const V = [
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1920_18MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1280_10MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_640_3MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_480_1_5MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1920_18MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1280_10MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_640_3MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_480_1_5MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1920_18MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_1280_10MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_640_3MG.mp4",
-  "https://file-examples.com/storage/fe446a2c2f6722d6ff6628a/2017/04/file_example_MP4_480_1_5MG.mp4",
+  "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+  "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4",
+  "https://download.samplelib.com/mp4/sample-5s.mp4",
+  "https://download.samplelib.com/mp4/sample-10s.mp4",
+  "https://download.samplelib.com/mp4/sample-15s.mp4",
+  "https://download.samplelib.com/mp4/sample-20s.mp4",
+  "https://download.samplelib.com/mp4/sample-30s.mp4",
+  "https://www.w3schools.com/html/mov_bbb.mp4",
+  "https://www.w3schools.com/html/movie.mp4",
 ];
 
+// Fallback cover pool from local generated art (used if remote poster fails).
 const COVERS = [a1, a2, a3, a4, a5, a6];
+
+// Unique per-anime cover: deterministic seed => distinct image per title.
+// Uses picsum.photos with a title-derived seed so every card looks different.
+const coverFor = (id: string, title: string) =>
+  `https://picsum.photos/seed/neoanime-${id}-${encodeURIComponent(title).slice(0, 24)}/640/896`;
 
 const RAW: Omit<Anime, "cover" | "trailer">[] = [
   { id: "1", title: "Атака Титанов", genre: "Экшн", rating: 9.1, episodes: 87, year: 2013, desc: "Человечество за стенами против гигантов." },
@@ -82,7 +86,7 @@ const RAW: Omit<Anime, "cover" | "trailer">[] = [
 
 const CATALOG: Anime[] = RAW.map((a, i) => ({
   ...a,
-  cover: COVERS[i % COVERS.length],
+  cover: coverFor(a.id, a.title),
   trailer: V[i % V.length],
 }));
 
@@ -381,8 +385,14 @@ function Index() {
                   loading="lazy"
                   width={640}
                   height={896}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const fallback = COVERS[Number(a.id.replace(/\D/g, "") || 0) % COVERS.length];
+                    if (img.src !== fallback) img.src = fallback;
+                  }}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
+
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
                 <div
                   className="absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-primary-foreground"
