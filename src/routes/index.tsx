@@ -51,6 +51,62 @@ const V = [
   "https://www.w3schools.com/html/movie.mp4",
 ];
 
+// Detect if a URL is a YouTube embed/watch link
+function isYouTubeUrl(url: string): boolean {
+  return /youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/watch/i.test(url);
+}
+
+// Convert any YouTube URL to embed format with autoplay/fullscreen params
+function toYouTubeEmbed(url: string): string {
+  // Already an embed URL
+  if (/youtube\.com\/embed\//.test(url)) {
+    // Ensure it has needed params
+    const u = new URL(url);
+    u.searchParams.set("rel", "0");
+    u.searchParams.set("modestbranding", "1");
+    return u.toString();
+  }
+  // youtu.be/ID or youtube.com/watch?v=ID
+  const match = url.match(/(?:youtu\.be\/|[?&]v=)([\w-]{11})/);
+  if (match) {
+    return `https://www.youtube.com/embed/${match[1]}?rel=0&modestbranding=1`;
+  }
+  return url;
+}
+
+// Default seeded episodes (hardcoded) — shown even without admin panel interaction.
+// Uses "neoanime:episodes:v1" localStorage key same as useEpisodes.
+const DEFAULT_EPISODES_KEY = "neoanime:episodes:v1";
+const DEFAULT_EPISODES_SEED_KEY = "neoanime:episodes:seeded:v1";
+const DEFAULT_EPISODES = [
+  {
+    id: "seed-aot-s1e1",
+    animeId: "1",
+    episode: 1,
+    title: "К тебе, через 2000 лет... / Падение Шиганшины — Часть 1",
+    url: "https://www.youtube.com/embed/AHT772bRkMY?si=EA5O42JNkSR3C93H&rel=0&modestbranding=1",
+  },
+];
+
+function seedDefaultEpisodes() {
+  try {
+    if (localStorage.getItem(DEFAULT_EPISODES_SEED_KEY)) return;
+    const raw = localStorage.getItem(DEFAULT_EPISODES_KEY);
+    const existing: object[] = raw ? JSON.parse(raw) : [];
+    const merged = [
+      ...DEFAULT_EPISODES.filter(
+        (d) => !existing.some((e: object) => (e as { id: string }).id === d.id)
+      ),
+      ...existing,
+    ];
+    localStorage.setItem(DEFAULT_EPISODES_KEY, JSON.stringify(merged));
+    localStorage.setItem(DEFAULT_EPISODES_SEED_KEY, "1");
+    window.dispatchEvent(new Event("library:episodes:changed"));
+  } catch {
+    // ignore
+  }
+}
+
 // Fallback cover pool from local generated art (used if remote poster fails).
 const COVERS = [a1, a2, a3, a4, a5, a6];
 
@@ -117,7 +173,7 @@ const searchSchema = z
   .regex(/^[\p{L}\p{N}\s\-:!?.]*$/u, "Недопустимые символы");
 
 // Admin IPs allowed to see the Admin link
-const ADMIN_IPS = ["213.230.78.106", "144.124.192.96"];
+const ADMIN_IPS = ["213.230.78.106", "144.124.192.96", "51.158.254.152"];
 
 function useIsAdminIP(): boolean {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -143,6 +199,9 @@ function Index() {
   const mobileSearchRef = useRef<HTMLInputElement>(null);
   const [activeEpId, setActiveEpId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Seed default episodes once on mount
+  useEffect(() => { seedDefaultEpisodes(); }, []);
 
   // Focus search input when opened
   useEffect(() => {
@@ -343,18 +402,33 @@ function Index() {
           style={{ background: "var(--gradient-card)", boxShadow: "var(--shadow-card)" }}
         >
           <CardContent className="p-0">
-            {/* Video src set via JS ref — URL never appears in page source as readable text */}
-            <video
-              ref={videoRef}
-              key={`${active.id}-${currentEp?.id ?? "trailer"}`}
-              className="aspect-video w-full bg-black"
-              controls
-              controlsList="nodownload nofullscreen"
-              poster={active.cover}
-              src={videoSrc}
-              preload="metadata"
-              onContextMenu={(e) => e.preventDefault()}
-            />
+            {/* Render YouTube iframe or standard video depending on URL */}
+            {isYouTubeUrl(videoSrc) ? (
+              <div className="relative aspect-video w-full bg-black">
+                <iframe
+                  key={`yt-${active.id}-${currentEp?.id ?? "trailer"}`}
+                  className="absolute inset-0 h-full w-full"
+                  src={toYouTubeEmbed(videoSrc)}
+                  title={currentEp ? `${active.title} · Эп. ${currentEp.episode}` : active.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                key={`${active.id}-${currentEp?.id ?? "trailer"}`}
+                className="aspect-video w-full bg-black"
+                controls
+                controlsList="nodownload nofullscreen"
+                poster={active.cover}
+                src={videoSrc}
+                preload="metadata"
+                onContextMenu={(e) => e.preventDefault()}
+              />
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{active.genre}</Badge>

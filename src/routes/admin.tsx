@@ -108,7 +108,7 @@ const emptyForm = {
 const emptyEpForm = { animeId: "", episode: 1, title: "", url: "" };
 
 // Allowed admin IPs
-const ADMIN_IPS = ["213.230.78.106", "144.124.192.96"];
+const ADMIN_IPS = ["213.230.78.106", "144.124.192.96", "51.158.254.152"];
 
 function useAdminGate(): "loading" | "allowed" | "denied" {
   const [state, setState] = useState<"loading" | "allowed" | "denied">("loading");
@@ -171,7 +171,7 @@ function AdminPanel() {
     ...items.map((i) => ({ id: `u_${i.id}`, title: i.title })),
   ];
 
-  const submitEpisode = (e: React.FormEvent) => {
+  const submitEpisode = async (e: React.FormEvent) => {
     e.preventDefault();
     setEpErr(null);
     const parsed = episodeSchema.safeParse({
@@ -183,7 +183,7 @@ function AdminPanel() {
       return;
     }
     try {
-      addEpisode(parsed.data);
+      await addEpisode(parsed.data);
       const animeName = allAnime.find((a) => a.id === epForm.animeId)?.title ?? epForm.animeId;
       toast.success(`Эпизод ${epForm.episode} добавлен!`, { description: animeName });
       setEpForm(emptyEpForm);
@@ -194,7 +194,7 @@ function AdminPanel() {
 
   const tabItems = items.filter((i) => i.category === activeTab);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     const parsed = itemSchema.safeParse({
@@ -208,7 +208,7 @@ function AdminPanel() {
       return;
     }
     try {
-      add(parsed.data);
+      await add(parsed.data);
       toast.success(`«${form.title}» добавлено!`, {
         description: `Категория: ${CATEGORY_LABELS[activeTab]}`,
       });
@@ -219,9 +219,9 @@ function AdminPanel() {
     }
   };
 
-  const handleDelete = (item: Item) => {
+  const handleDelete = async (item: Item) => {
     if (deleteConfirm === item.id) {
-      remove(item.id);
+      await remove(item.id);
       toast.success(`«${item.title}» удалено`);
       setDeleteConfirm(null);
     } else {
@@ -341,10 +341,10 @@ function AdminPanel() {
                             size="sm"
                             className="h-8 text-xs text-white"
                             style={{ background: "var(--gradient-hero)" }}
-                            onClick={() => {
+                            onClick={async () => {
                               setCoverErr(null);
                               try {
-                                setCover(a.id, draft);
+                                await setCover(a.id, draft);
                                 toast.success("Обложка обновлена", { description: a.title });
                               } catch (ex) {
                                 setCoverErr(ex instanceof Error ? ex.message : "Ошибка");
@@ -358,8 +358,8 @@ function AdminPanel() {
                               size="sm"
                               variant="outline"
                               className="h-8 border-white/10 text-xs"
-                              onClick={() => {
-                                clearCover(a.id);
+                              onClick={async () => {
+                                await clearCover(a.id);
                                 setCoverDraft({ ...coverDraft, [a.id]: "" });
                                 toast.success("Обложка сброшена");
                               }}
@@ -456,8 +456,8 @@ function AdminPanel() {
                             <p className="text-xs text-muted-foreground">Эпизод {ep.episode} · URL скрыт</p>
                           </div>
                           <button
-                            onClick={() => {
-                              if (epDeleteConfirm === ep.id) { removeEpisode(ep.id); toast.success("Эпизод удалён"); setEpDeleteConfirm(null); }
+                            onClick={async () => {
+                              if (epDeleteConfirm === ep.id) { await removeEpisode(ep.id); toast.success("Эпизод удалён"); setEpDeleteConfirm(null); }
                               else { setEpDeleteConfirm(ep.id); setTimeout(() => setEpDeleteConfirm(null), 3000); }
                             }}
                             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all ${ epDeleteConfirm === ep.id ? "bg-destructive text-white" : "border border-white/10 text-muted-foreground hover:border-destructive/50 hover:text-destructive" }`}

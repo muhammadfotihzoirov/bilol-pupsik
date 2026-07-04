@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { z } from "zod";
+import { supabase } from "./supabase";
 
 export type Category = "anime" | "series" | "movie";
 
@@ -62,77 +63,44 @@ export const episodeSchema = z.object({
   url: urlSchema,
 });
 
-const KEY = "neoanime:library:v1";
-const EP_KEY = "neoanime:episodes:v1";
-const COVER_KEY = "neoanime:covers:v1";
 const MAX_ITEMS = 200; // hard cap — DoS/quota protection
-const MAX_EPISODES = 2000;
-const MAX_COVERS = 500;
 
 export const coverOverrideSchema = urlSchema;
-
-
-function read(): Item[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.slice(0, MAX_ITEMS);
-  } catch {
-    return [];
-  }
-}
-
-function write(items: Item[]) {
-  localStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX_ITEMS)));
-  window.dispatchEvent(new Event("library:changed"));
-}
-
-function readEpisodes(): Episode[] {
-  try {
-    const raw = localStorage.getItem(EP_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.slice(0, MAX_EPISODES);
-  } catch {
-    return [];
-  }
-}
-
-function writeEpisodes(eps: Episode[]) {
-  localStorage.setItem(EP_KEY, JSON.stringify(eps.slice(0, MAX_EPISODES)));
-  window.dispatchEvent(new Event("library:episodes:changed"));
-}
 
 export function useLibrary() {
   const [items, setItems] = useState<Item[]>([]);
 
-  useEffect(() => {
-    setItems(read());
-    const onChange = () => setItems(read());
-    window.addEventListener("library:changed", onChange);
-    window.addEventListener("storage", onChange);
-    return () => {
-      window.removeEventListener("library:changed", onChange);
-      window.removeEventListener("storage", onChange);
-    };
+  const fetchItems = useCallback(async () => {
+    const { data, error } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+    if (!error && data) {
+      setItems(data as Item[]);
+    }
   }, []);
 
-  const add = (input: unknown) => {
+  useEffect(() => {
+    fetchItems();
+    window.addEventListener("library:changed", fetchItems);
+    return () => window.removeEventListener("library:changed", fetchItems);
+  }, [fetchItems]);
+
+  const add = async (input: unknown) => {
     const parsed = itemSchema.parse(input);
-    const current = read();
-    if (current.length >= MAX_ITEMS) throw new Error("Достигнут лимит записей");
+    if (items.length >= MAX_ITEMS) throw new Error("Достигнут лимит записей");
     const item: Item = { ...parsed, id: crypto.randomUUID() };
-    write([item, ...current]);
+    const { error } = await supabase.from("items").insert([item]);
+    if (error) {
+      console.error("Supabase insert error (items):", error);
+      throw new Error(`Ошибка БД: ${error.message}`);
+    }
+    window.dispatchEvent(new Event("library:changed"));
     return item;
   };
 
-  const remove = (id: string) => {
-    write(read().filter((i) => i.id !== id));
-    // also remove episodes for this item
-    writeEpisodes(readEpisodes().filter((e) => e.animeId !== id));
+  const remove = async (id: string) => {
+    await supabase.from("items").delete().eq("id", id);
+    await supabase.from("episodes").delete().eq("animeId", id);
+    window.dispatchEvent(new Event("library:changed"));
+    window.dispatchEvent(new Event("library:episodes:changed"));
   };
 
   return { items, add, remove, MAX_ITEMS };
@@ -141,28 +109,34 @@ export function useLibrary() {
 export function useEpisodes() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
 
-  useEffect(() => {
-    setEpisodes(readEpisodes());
-    const onChange = () => setEpisodes(readEpisodes());
-    window.addEventListener("library:episodes:changed", onChange);
-    window.addEventListener("storage", onChange);
-    return () => {
-      window.removeEventListener("library:episodes:changed", onChange);
-      window.removeEventListener("storage", onChange);
-    };
+  const fetchEpisodes = useCallback(async () => {
+    const { data, error } = await supabase.from("episodes").select("*").order("episode", { ascending: true });
+    if (!error && data) {
+      setEpisodes(data as Episode[]);
+    }
   }, []);
 
-  const addEpisode = (input: unknown) => {
+  useEffect(() => {
+    fetchEpisodes();
+    window.addEventListener("library:episodes:changed", fetchEpisodes);
+    return () => window.removeEventListener("library:episodes:changed", fetchEpisodes);
+  }, [fetchEpisodes]);
+
+  const addEpisode = async (input: unknown) => {
     const parsed = episodeSchema.parse(input);
-    const current = readEpisodes();
-    if (current.length >= MAX_EPISODES) throw new Error("Достигнут лимит эпизодов");
     const ep: Episode = { ...parsed, id: crypto.randomUUID() };
-    writeEpisodes([...current, ep]);
+    const { error } = await supabase.from("episodes").insert([ep]);
+    if (error) {
+      console.error("Supabase insert error (episodes):", error);
+      throw new Error(`Ошибка БД: ${error.message}`);
+    }
+    window.dispatchEvent(new Event("library:episodes:changed"));
     return ep;
   };
 
-  const removeEpisode = (id: string) => {
-    writeEpisodes(readEpisodes().filter((e) => e.id !== id));
+  const removeEpisode = async (id: string) => {
+    await supabase.from("episodes").delete().eq("id", id);
+    window.dispatchEvent(new Event("library:episodes:changed"));
   };
 
   const getForAnime = (animeId: string) =>
@@ -173,54 +147,41 @@ export function useEpisodes() {
   return { episodes, addEpisode, removeEpisode, getForAnime };
 }
 
-// Cover overrides — map animeId -> https URL. Used to change catalog covers.
-function readCovers(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(COVER_KEY);
-    if (!raw) return {};
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") return {};
-    return obj as Record<string, string>;
-  } catch {
-    return {};
-  }
-}
-
-function writeCovers(covers: Record<string, string>) {
-  const keys = Object.keys(covers).slice(0, MAX_COVERS);
-  const trimmed: Record<string, string> = {};
-  for (const k of keys) trimmed[k] = covers[k];
-  localStorage.setItem(COVER_KEY, JSON.stringify(trimmed));
-  window.dispatchEvent(new Event("library:covers:changed"));
-}
-
 export function useCoverOverrides() {
   const [covers, setCovers] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    setCovers(readCovers());
-    const onChange = () => setCovers(readCovers());
-    window.addEventListener("library:covers:changed", onChange);
-    window.addEventListener("storage", onChange);
-    return () => {
-      window.removeEventListener("library:covers:changed", onChange);
-      window.removeEventListener("storage", onChange);
-    };
+  const fetchCovers = useCallback(async () => {
+    const { data, error } = await supabase.from("covers").select("*");
+    if (!error && data) {
+      const map: Record<string, string> = {};
+      data.forEach((row: { animeId: string; url: string }) => {
+        map[row.animeId] = row.url;
+      });
+      setCovers(map);
+    }
   }, []);
 
-  const setCover = (animeId: string, url: string) => {
+  useEffect(() => {
+    fetchCovers();
+    window.addEventListener("library:covers:changed", fetchCovers);
+    return () => window.removeEventListener("library:covers:changed", fetchCovers);
+  }, [fetchCovers]);
+
+  const setCover = async (animeId: string, url: string) => {
     if (!animeId || animeId.length > 100) throw new Error("Неверный id");
     const parsed = coverOverrideSchema.parse(url);
-    const current = readCovers();
-    writeCovers({ ...current, [animeId]: parsed });
+    const { error } = await supabase.from("covers").upsert({ animeId, url: parsed });
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      throw new Error(`Ошибка БД: ${error.message}`);
+    }
+    window.dispatchEvent(new Event("library:covers:changed"));
   };
 
-  const clearCover = (animeId: string) => {
-    const current = readCovers();
-    delete current[animeId];
-    writeCovers(current);
+  const clearCover = async (animeId: string) => {
+    await supabase.from("covers").delete().eq("animeId", animeId);
+    window.dispatchEvent(new Event("library:covers:changed"));
   };
 
   return { covers, setCover, clearCover };
 }
-
