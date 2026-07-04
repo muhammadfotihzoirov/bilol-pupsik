@@ -53,6 +53,37 @@ const COVERS = [a1, a2, a3, a4, a5, a6];
 const coverFor = (id: string, title: string) =>
   `https://picsum.photos/seed/neoanime-${id}-${encodeURIComponent(title).slice(0, 24)}/640/896`;
 
+const RAW: Omit<Anime, "cover" | "trailer">[] = [
+  { id: "1", title: "Атака Титанов", genre: "Экшн", rating: 9.1, episodes: 87, year: 2013, desc: "Человечество за стенами против гигантов." },
+  { id: "2", title: "Наруто: Ураганные хроники", genre: "Экшн", rating: 8.7, episodes: 500, year: 2007, desc: "Путь ниндзя к званию Хокаге." },
+  { id: "3", title: "Ван-Пис", genre: "Приключения", rating: 9.0, episodes: 1100, year: 1999, desc: "Пираты в поисках легендарного сокровища." },
+  { id: "4", title: "Клинок, рассекающий демонов", genre: "Экшн", rating: 8.9, episodes: 55, year: 2019, desc: "Мальчик мстит демонам за семью." },
+  { id: "5", title: "Магическая битва", genre: "Экшн", rating: 8.8, episodes: 47, year: 2020, desc: "Мир проклятий и магов." },
+  { id: "6", title: "Моя геройская академия", genre: "Экшн", rating: 8.4, episodes: 158, year: 2016, desc: "Школа для будущих супергероев." },
+  { id: "7", title: "Стальной алхимик: Братство", genre: "Приключения", rating: 9.4, episodes: 64, year: 2009, desc: "Братья и цена запретной алхимии." },
+  { id: "8", title: "Тетрадь смерти", genre: "Триллер", rating: 9.0, episodes: 37, year: 2006, desc: "Тетрадь, убивающая любого." },
+  { id: "9", title: "Код Гиасс", genre: "Меха", rating: 8.7, episodes: 50, year: 2006, desc: "Изгнанный принц и сила Гиасса." },
+  { id: "10", title: "Стейнс;Гейт", genre: "Триллер", rating: 9.1, episodes: 24, year: 2011, desc: "Учёные, случайно открывшие путешествия во времени." },
+  { id: "11", title: "Твоё имя", genre: "Романтика", rating: 8.9, episodes: 1, year: 2016, desc: "Два подростка меняются телами через время." },
+  { id: "12", title: "Унесённые призраками", genre: "Фэнтези", rating: 8.6, episodes: 1, year: 2001, desc: "Девочка в мире духов." },
+  { id: "13", title: "Ковбой Бибоп", genre: "Экшн", rating: 8.8, episodes: 26, year: 1998, desc: "Охотники за головами в космосе." },
+  { id: "14", title: "Евангелион", genre: "Меха", rating: 8.5, episodes: 26, year: 1995, desc: "Пилоты мехов против Ангелов." },
+  { id: "15", title: "Клинок Бессмертного", genre: "Экшн", rating: 8.3, episodes: 24, year: 2019, desc: "Проклятый бессмертный самурай." },
+  { id: "16", title: "Ре:Зеро", genre: "Фэнтези", rating: 8.5, episodes: 50, year: 2016, desc: "Возврат в точку смерти." },
+  { id: "17", title: "Оверлорд", genre: "Фэнтези", rating: 8.0, episodes: 52, year: 2015, desc: "Игрок застрял в теле лича." },
+  { id: "18", title: "Ванпанчмен", genre: "Экшн", rating: 8.7, episodes: 24, year: 2015, desc: "Герой, побеждающий одним ударом." },
+  { id: "19", title: "Мастера меча онлайн", genre: "Фэнтези", rating: 7.5, episodes: 100, year: 2012, desc: "Заперты в VR-игре навсегда." },
+  { id: "20", title: "Психопаспорт", genre: "Триллер", rating: 8.3, episodes: 41, year: 2012, desc: "Общество, где мысли под контролем." },
+  { id: "21", title: "Токийский гуль", genre: "Триллер", rating: 7.8, episodes: 48, year: 2014, desc: "Полугуль между двух миров." },
+  { id: "22", title: "Хвост Феи", genre: "Приключения", rating: 8.0, episodes: 328, year: 2009, desc: "Гильдия магов и приключения." },
+  { id: "23", title: "Синий экзорцист", genre: "Экшн", rating: 7.9, episodes: 37, year: 2011, desc: "Сын Сатаны становится экзорцистом." },
+  { id: "24", title: "Кибергород ЭДО.808", genre: "Киберпанк", rating: 7.6, episodes: 3, year: 1990, desc: "Мегаполис будущего и хакеры." },
+  { id: "25", title: "Призрак в доспехах", genre: "Киберпанк", rating: 8.3, episodes: 1, year: 1995, desc: "Кибернетика и сознание." },
+  { id: "26", title: "Акира", genre: "Киберпанк", rating: 8.1, episodes: 1, year: 1988, desc: "Нео-Токио и телекинетический хаос." },
+  { id: "27", title: "Мушиши", genre: "Фэнтези", rating: 8.7, episodes: 46, year: 2005, desc: "Странник изучает духов природы." },
+  { id: "28", title: "Моб Психо 100", genre: "Экшн", rating: 8.6, episodes: 37, year: 2016, desc: "Школьник-эспер с бешеной силой." },
+];
+
 const CATALOG: Anime[] = RAW.map((a, i) => ({
   ...a,
   cover: coverFor(a.id, a.title),
