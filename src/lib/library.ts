@@ -64,8 +64,13 @@ export const episodeSchema = z.object({
 
 const KEY = "neoanime:library:v1";
 const EP_KEY = "neoanime:episodes:v1";
+const COVER_KEY = "neoanime:covers:v1";
 const MAX_ITEMS = 200; // hard cap — DoS/quota protection
 const MAX_EPISODES = 2000;
+const MAX_COVERS = 500;
+
+export const coverOverrideSchema = urlSchema;
+
 
 function read(): Item[] {
   try {
