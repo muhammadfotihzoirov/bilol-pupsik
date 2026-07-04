@@ -54,10 +54,21 @@ const V = [
 // Fallback cover pool from local generated art (used if remote poster fails).
 const COVERS = [a1, a2, a3, a4, a5, a6];
 
+// Hardcoded real covers for known catalog entries (by id).
+const DEFAULT_COVERS: Record<string, string> = {
+  "1": aotCover.url,           // Атака Титанов
+  "2": narutoCover.url,        // Наруто: Ураганные хроники
+  "4": demonSlayerCover.url,   // Клинок, рассекающий демонов
+  "5": jjkCover.url,           // Магическая битва
+  "6": mhaCover.url,           // Моя геройская академия
+};
+
 // Unique per-anime cover: deterministic seed => distinct image per title.
 // Uses picsum.photos with a title-derived seed so every card looks different.
 const coverFor = (id: string, title: string) =>
+  DEFAULT_COVERS[id] ??
   `https://picsum.photos/seed/neoanime-${id}-${encodeURIComponent(title).slice(0, 24)}/640/896`;
+
 
 const RAW: Omit<Anime, "cover" | "trailer">[] = [
   { id: "1", title: "Атака Титанов", genre: "Экшн", rating: 9.1, episodes: 87, year: 2013, desc: "Человечество за стенами против гигантов." },
