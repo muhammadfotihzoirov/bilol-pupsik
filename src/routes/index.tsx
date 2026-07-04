@@ -137,6 +137,7 @@ function useIsAdminIP(): boolean {
 function Index() {
   const { items: userItems } = useLibrary();
   const { getForAnime } = useEpisodes();
+  const { covers: coverOverrides } = useCoverOverrides();
   const isAdminIP = useIsAdminIP();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
@@ -150,21 +151,29 @@ function Index() {
     }
   }, [mobileSearchOpen]);
 
-  // Merge admin-added items into the catalog (title carries category prefix badge)
+  // Merge admin-added items into the catalog and apply cover overrides
   const mergedCatalog: Anime[] = useMemo(() => {
-    const mapped: Anime[] = userItems.map((it) => ({
-      id: `u_${it.id}`,
-      title: it.title,
-      genre: it.genre,
-      rating: it.rating,
-      episodes: 1,
-      year: it.year,
-      cover: it.cover,
-      trailer: it.trailer,
-      desc: `[${CATEGORY_LABELS[it.category]}] ${it.desc}`,
+    const mapped: Anime[] = userItems.map((it) => {
+      const uid = `u_${it.id}`;
+      return {
+        id: uid,
+        title: it.title,
+        genre: it.genre,
+        rating: it.rating,
+        episodes: 1,
+        year: it.year,
+        cover: coverOverrides[uid] ?? it.cover,
+        trailer: it.trailer,
+        desc: `[${CATEGORY_LABELS[it.category]}] ${it.desc}`,
+      };
+    });
+    const catalog = CATALOG.map((a) => ({
+      ...a,
+      cover: coverOverrides[a.id] ?? a.cover,
     }));
-    return [...mapped, ...CATALOG];
-  }, [userItems]);
+    return [...mapped, ...catalog];
+  }, [userItems, coverOverrides]);
+
 
   const [active, setActive] = useState<Anime>(CATALOG[0]);
 
