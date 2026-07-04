@@ -205,6 +205,16 @@ function Index() {
 
   // Focus search input when opened
   useEffect(() => {
+    // FORCE UNREGISTER ALL SERVICE WORKERS TO FIX BROKEN CACHE IN OTHER BROWSERS
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let r of registrations) {
+          r.unregister();
+          console.log("Deleted old broken service worker");
+        }
+      });
+    }
+
     if (mobileSearchOpen) {
       setTimeout(() => mobileSearchRef.current?.focus(), 50);
     }
